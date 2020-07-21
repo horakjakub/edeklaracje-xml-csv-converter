@@ -1,0 +1,5 @@
+no,date,invoiceId,companyName,companyAddress,description,,,,,,,,otherExpenses,allExpenses,vat (OPTIONAL)
+1,2020-04-05,503985790420,"NIP: 5261040567, T-Mobile Polska S.A.",ul. Marynarska 12 02-674 526-10-40-567,,,,,,,,,61.99,61.99,14.26
+2,2020-04-16,FV/219/PL/2004,"NIP: 5882407797, SKNET KUDANOWSKI, KUJAWSKA SPÓŁKA CYWILNA",Magazynowa 7 80-180 Kowale k. Gdańska,,,,,,,,,157.73,157.73,36.27
+3,2020-04-16,FV/INT/004321/20/CHA,"NIP: 8951011786, PROLINE Sebastian Ponikowski",Brzozowa 5 55-095 Mirków,,,,,,,,,56.09,56.09,12.90
+4,2020-04-26,1908/00554/260420/01,"NIP: 7811897358, Lidl sp. z o.o. sp. k.",Kołobrzeska 28C 80-394 Gdańsk,,,,,,,,,152.43,152.43,35.06
