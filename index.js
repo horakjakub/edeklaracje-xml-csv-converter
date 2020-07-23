@@ -15,8 +15,9 @@ if (!yearArg || !monthArg) {
 
 const month = monthArg.slice(3, monthArg.length);
 const year = yearArg.slice(3, yearArg.length);
-
+let recordCount = 0;
 const records = []
+const ROWS_THRESHOLD = 1;
 
 db.serialize(() => {
   db.each(`SELECT * FROM invoices WHERE business_periodMonth="${month}" AND business_periodYear="${year}"`, (err, data) => {
@@ -42,18 +43,21 @@ db.serialize(() => {
     const d = invoicingDate.getDate() < 10 ? `0${invoicingDate.getDate()}` :  invoicingDate.getDate();
     const { business_netValue, business_taxValue } = data;
     const carRelatedExpenseValue = Math.round((((business_netValue + business_taxValue / 2) * 0.75) + Number.EPSILON) * 100) / 100;
+    recordCount++;
 
     records.push({
+      no: recordCount,
       date: `${y}-${m}-${d}`,
       invoiceId: data.business_refid,
       companyName: `NIP: ${data.business_contractorNIP}, ${data.business_contractorName}`,
       description: purchaseDescription,
       carRelatedExpense: isCarRelated ? 'x' : '',
       originalExpense: business_netValue,
-      tax: business_taxValue ? 'x' : '',
+      taxIncluded: business_taxValue ? 'x' : '',
+      taxCalculated: `=IF(ISBLANK(L${ROWS_THRESHOLD + recordCount}),0,IF(ISBLANK(K${ROWS_THRESHOLD + recordCount}),M${ROWS_THRESHOLD + recordCount}*0.23, (M${ROWS_THRESHOLD + recordCount}*0.23 / 2))`,
       companyAddress,
       otherExpenses: !isCarRelated ? business_netValue : carRelatedExpenseValue, 
-      allExpenses: !isCarRelated ? business_netValue : carRelatedExpenseValue, 
+      allExpenses: `=P${ROWS_THRESHOLD + recordCount}+Q${ROWS_THRESHOLD + recordCount}`,
     });
   }, () => {
     saveRecordsInCsvFile(year, month, records);
@@ -78,9 +82,9 @@ function saveRecordsInCsvFile(year, month, records) {
       '9',
       '10',
       {id: 'carRelatedExpense', title: 'carRelatedExpense'},
-      {id: 'tax', title: 'tax' },
+      {id: 'taxIncluded', title: 'taxIncluded' },
       {id: 'originalExpense',  title: 'originalExpense' },
-      '',
+      {id: 'taxCalculated', title: 'taxCalculated' },
       '11',
       '12',
       {id: 'otherExpenses', title: 'otherExpenses'},
