@@ -25,40 +25,68 @@ db.serialize(() => {
     const xmlDataBody = decoder.write(data.technical_body)
     const dataBody = JSON.parse(parser.toJson(xmlDataBody));
 
-    if (!dataBody.invoicePurchase) {
-      // this is sell invoice 
-      return;
+
+    if (!dataBody.invoicePurchase) { 
+     if (data.business_state === 'CANCELED') return;
+     recordCount++;
+     const invoiceElementData = dataBody.invoiceSell.invoiceElementSell;
+     const invoiceAddressData = dataBody.invoiceSell.AKP.AIX;
+     const {ANW, ANX, ANZ, ANV} = invoiceAddressData;
+     const companyAddress = `${ANW.APG['$t']} ${ANX.APG['$t']}, ${ANZ.APG['$t']} ${ANV.APG['$t']}`;
+     const invoiceId = data.business_refid;
+     const companyName = `NIP: ${data.business_contractorNIP}, ${data.business_contractorName}`;
+     const sellDescription = invoiceElementData.AJY.APG['$t'];
+
+     const invoicingDate = new Date(data.business_invoicingDate);
+     const y = invoicingDate.getFullYear();
+     const m = invoicingDate.getMonth() < 9 ? `0${invoicingDate.getMonth() +1}` :  invoicingDate.getMonth() + 1;
+     const d = invoicingDate.getDate() < 10 ? `0${invoicingDate.getDate()}` :  invoicingDate.getDate();
+      
+    const date = `${y}-${m}-${d}`;
+    const { business_netValue } = data;
+
+     records.push({
+       no: recordCount,
+       date,
+       invoiceId,
+       companyName,
+       description: sellDescription,
+       companyAddress,
+       sellValue: business_netValue,
+       allSellValue: business_netValue
+     });
+    } else {
+      recordCount++;
+     const invoiceElementData = dataBody.invoicePurchase.invoiceElementPurchase;
+     const invoiceAddressData = dataBody.invoicePurchase.AKL.AIX;
+     const {ANW, ANX, ANZ, ANV} = invoiceAddressData;
+     const companyAddress = `${ANW.APG['$t']} ${ANX.APG['$t']}, ${ANZ.APG['$t']} ${ANV.APG['$t']}`;
+
+     const isCarRelated = invoiceElementData.AKI.APG['$t'] === 'true';
+     const purchaseDescription = invoiceElementData.AJY.APG['$t'];
+
+     const invoicingDate = new Date(data.business_invoicingDate);
+     const y = invoicingDate.getFullYear();
+     const m = invoicingDate.getMonth() < 9 ? `0${invoicingDate.getMonth() +1}` :  invoicingDate.getMonth() + 1;
+     const d = invoicingDate.getDate() < 10 ? `0${invoicingDate.getDate()}` :  invoicingDate.getDate();
+     const { business_netValue, business_taxValue } = data;
+     const carRelatedExpenseValue = Math.round((((business_netValue + business_taxValue / 2) * 0.75) + Number.EPSILON) * 100) / 100;
+      
+     records.push({
+       no: recordCount,
+       date: `${y}-${m}-${d}`,
+       invoiceId: data.business_refid,
+       companyName: `NIP: ${data.business_contractorNIP}, ${data.business_contractorName}`,
+       description: purchaseDescription,
+       carRelatedExpense: isCarRelated ? 'x' : '',
+       originalExpense: business_netValue,
+       taxIncluded: business_taxValue ? 'x' : '',
+       taxCalculated: `=IF(ISBLANK(L${ROWS_THRESHOLD + recordCount}),0,IF(ISBLANK(K${ROWS_THRESHOLD + recordCount}),M${ROWS_THRESHOLD + recordCount}*0.23, (M${ROWS_THRESHOLD + recordCount}*0.23 / 2))`,
+       companyAddress,
+       otherExpenses: !isCarRelated ? business_netValue : carRelatedExpenseValue, 
+       allExpenses: `=P${ROWS_THRESHOLD + recordCount}+Q${ROWS_THRESHOLD + recordCount}`,
+     });
     }
-
-    const invoiceElementData = dataBody.invoicePurchase.invoiceElementPurchase;
-    const invoiceAddressData = dataBody.invoicePurchase.AKL.AIX;
-    const {ANW, ANX, ANZ, ANV} = invoiceAddressData;
-    const companyAddress = `${ANW.APG['$t']} ${ANX.APG['$t']}, ${ANZ.APG['$t']} ${ANV.APG['$t']}`;
-
-    const isCarRelated = invoiceElementData.AKI.APG['$t'] === 'true';
-    const purchaseDescription = invoiceElementData.AJY.APG['$t'];
-    const invoicingDate = new Date(data.business_invoicingDate);
-    const y = invoicingDate.getFullYear();
-    const m = invoicingDate.getMonth() < 9 ? `0${invoicingDate.getMonth() +1}` :  invoicingDate.getMonth() + 1;
-    const d = invoicingDate.getDate() < 10 ? `0${invoicingDate.getDate()}` :  invoicingDate.getDate();
-    const { business_netValue, business_taxValue } = data;
-    const carRelatedExpenseValue = Math.round((((business_netValue + business_taxValue / 2) * 0.75) + Number.EPSILON) * 100) / 100;
-    recordCount++;
-
-    records.push({
-      no: recordCount,
-      date: `${y}-${m}-${d}`,
-      invoiceId: data.business_refid,
-      companyName: `NIP: ${data.business_contractorNIP}, ${data.business_contractorName}`,
-      description: purchaseDescription,
-      carRelatedExpense: isCarRelated ? 'x' : '',
-      originalExpense: business_netValue,
-      taxIncluded: business_taxValue ? 'x' : '',
-      taxCalculated: `=IF(ISBLANK(L${ROWS_THRESHOLD + recordCount}),0,IF(ISBLANK(K${ROWS_THRESHOLD + recordCount}),M${ROWS_THRESHOLD + recordCount}*0.23, (M${ROWS_THRESHOLD + recordCount}*0.23 / 2))`,
-      companyAddress,
-      otherExpenses: !isCarRelated ? business_netValue : carRelatedExpenseValue, 
-      allExpenses: `=P${ROWS_THRESHOLD + recordCount}+Q${ROWS_THRESHOLD + recordCount}`,
-    });
   }, () => {
     saveRecordsInCsvFile(year, month, records);
     console.log(records);
@@ -77,9 +105,9 @@ function saveRecordsInCsvFile(year, month, records) {
       {id: 'companyName', title: 'companyName'},
       {id: 'companyAddress', title: 'companyAddress'},
       {id: 'description', title: 'description'},
-      '7',
+      {id: 'sellValue', title: 'sellValue'},
       '8',
-      '9',
+      {id: 'allSellValue', title: 'allSellValue'},
       '10',
       {id: 'carRelatedExpense', title: 'carRelatedExpense'},
       {id: 'taxIncluded', title: 'taxIncluded' },
